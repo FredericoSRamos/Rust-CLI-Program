@@ -1,4 +1,5 @@
 use std::{fs::File, process};
+use chrono::{self, NaiveDate};
 
 extern crate store;
 
@@ -14,6 +15,7 @@ fn main() {
 
     let mut produto = store::Produto::default();
     let mut id: u64;
+    let mut data: chrono::NaiveDate;
 
     loop {
         let option = match store::gather_option() {
@@ -35,6 +37,11 @@ fn main() {
                 store::search_id(&mut file, &mut id, &mut produto)
             }
             4 => store::products_needing_restock(&mut file),
+            5 => { 
+                data = store::validation::validade_data_search();
+                store::search_sale_data(&mut file, &mut data,&mut produto)
+            }
+            6 => store::search_sale_product(&mut file)
             _ => {
                 eprintln!("Insira um valor válido de operação");
                 continue;

@@ -69,3 +69,51 @@ pub fn validate_input(input: Vec<&str>) -> Result<Produto, Box<dyn std::error::E
 
     return Ok(Produto::new(input[0].to_string(), 0, quantidade_estoque, valor, quantidade_restoque, data_restoque, categoria));
 }
+
+pub fn validate_input_sale(input: Vec<&str>) -> Result<Venda, Box<dyn std::error::Error>> {
+    let numero_produtos = validate_int(input[1])?;
+    let valor = validate_float(input[2])?;
+    let data_restoque = chrono::NaiveDate::parse_from_str(input[3], "%d/%m/%Y")?;
+    
+    let metodo_pagamento = match input[4] {
+        "Credito" => Metodo::Credito,
+        "Debito" => Metodo::Debito,
+        "Pix" => Metodo::Pix,
+        "Dinheiro" => Metodo::Dinheiro,
+        _ => {
+            return Err(Box::new(super::CustomErrors::NoCategory));
+        }
+    };
+
+    return Ok(Venda::new(input[0].to_string(), numero_produtos, valor, data_restoque, metodo_pagamento));
+}
+
+pub fn validate_data_search() -> chrono::NaiveDate{
+    loop {
+        println!("Digite a data de venda que deseja procurar seguindo o formato:(dd/mm/YYYY)");
+
+        let mut buf = String::new();
+        if let Err(error) = std::io::stdin().read_line(&mut buf) {
+            eprintln!("Um erro ocorreu ao tentar ler data desejado: {error}.");
+            continue;
+        }
+
+        buf = buf.trim();
+
+        if buf.trim().to_lowercase() == "sair" {
+            std::process::exit(0);
+        }
+
+        match parse_date(buf) {
+            Ok(data) => return data,
+            Err(_) => {
+                println!("Data inválida! A data deve estar no formato (dd/mm/YYYY).");
+                continue;
+            }
+        }
+    }
+}
+
+pub fn parse_date(input: &str) -> Result<NaiveDate, ParseError> {
+    NaiveDate::parse_from_str(input, "%Y-%m-%d")
+}

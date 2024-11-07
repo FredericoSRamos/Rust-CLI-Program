@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, Seek};
 use std::error::Error;
 
+
 use chrono::{self, NaiveDate};
 
 pub mod validation;
@@ -14,6 +15,14 @@ pub enum Categoria {
     Roupa,
     Alimento,
     Geral
+}
+
+#[derive(Debug)]
+pub enum Metodo {
+    Credito,
+    Debito,
+    Pix,
+    Dinheiro
 }
 
 #[derive(Debug)]
@@ -70,6 +79,26 @@ impl Produto {
     }
 }
 
+#[derive(Debug)]
+pub struct Venda {
+    pub produto: String,
+    pub numero_produtos: u64,
+    pub valor: f64,
+    pub data_venda: chrono::NaiveDate,
+    pub metodo_pagamento: Metodo
+}
+
+impl Venda {
+    pub fn new(produto: String, id: u64, numero_produtos: u64, valor: f64, data_venda: chrono::NaiveDate, metodo_pagamento: Metodo) -> Self {
+        Venda {
+            produto,
+            numero_produtos,
+            valor,
+            data_venda,
+            metodo_pagamento
+        }
+    }
+}
 pub fn gather_option() -> Result<u64, Box<dyn Error>> {
     screens::menu_screen();
 
@@ -113,24 +142,50 @@ pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
                 continue;
             }
         };
-
-        // Atualizar o id com base na posição do item no arquivo e retornar o id
-
-        println!("{:#?}", product);
-        return Ok(());
+        
+          // Atualizar o id com base na posição do item no arquivo e retornar o id
     }
 }
 
 pub fn register_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
-    println!("Insira o ID do produto:");
+    
+    screens::add_sale_screen();
 
     let mut buf = String::new();
     io::stdin().read_line(&mut buf)?;
 
-    let id: u64 = buf.trim().parse()?;
+    if buf.trim().to_lowercase() == "sair" {
+        return Ok(());
+    }
+
+    let mut fields = Vec::new();
+
+    for field in buf.split(',').collect::<Vec<&str>>() {
+        fields.push(field.trim());
+    }
+
+    if fields.len() != 5 {
+        eprintln!("Número insuficiente de argumentos.");
+        continue;
+    }
+
+    let sale = match validation::validate_input_sale(fields) {
+        Ok(sale) => sale,
+        Err(error) => {
+            eprintln!("Um erro ocorreu durante a conversão de argumentos: {error}.\nVerifique se todos os campos foram inseridos corretamente.");
+            continue;
+            }
+        };
+
+    println!("Insira o ID do produto:");
+
+    let mut buf2 = String::new();
+    io::stdin().read_line(&mut buf2)?;
+
+    let id: u64 = buf2.trim().parse()?;
 
     // Procurar no arquivo o produto pelo id - função search_id
-
+    // inserir venda no arquivo de vendas
     // se nao encontrar
     //return Err(Box::new(CustomErrors::IDNotFound));
 
@@ -138,6 +193,7 @@ pub fn register_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn search_id(file: &mut File, id: &mut u64, product: &mut Produto) -> Result<(), Box<dyn Error>> {
+
     // Retorna a posição caso encontrado
     // Retorna -1 caso não encontrar
 
@@ -146,6 +202,31 @@ pub fn search_id(file: &mut File, id: &mut u64, product: &mut Produto) -> Result
 
 pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
     file.seek(io::SeekFrom::Start(0))?;
+
+    return Ok(());
+}
+
+
+pub fn search_sale_data(file: &mut File, data: &mut chrono::NaiveDate, product: &mut Produto) -> Result<(), Box<dyn Error>> {
+
+    // Retorna as vendas com esta data caso encontrado
+    // Retorna -1 caso não encontrar
+
+    return Ok(());
+}
+
+pub fn search_sale_product(&mut file) -> Result<(), Box<dyn Error>>{
+
+    println!("insira nome do produto cujo interesse na vendas:");
+    
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+
+    buf.trim().to_string();
+
+    //procurar no arquivo de vendas o produto
+    //exibir todas suas vendas
+    //Retornar -1 caso não encontrar venda
 
     return Ok(());
 }
