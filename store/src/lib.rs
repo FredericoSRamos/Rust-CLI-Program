@@ -1,22 +1,51 @@
-use chrono;
+use std::fmt;
+use std::fs::File;
+use std::io::{self, Seek};
+use std::error::Error;
+
+use chrono::{self, NaiveDate};
+
+pub mod validation;
+pub mod screens;
+
+#[derive(Debug)]
 pub enum Categoria {
     Eletronico,
     Roupa,
-    Alimento
+    Alimento,
+    Geral
 }
 
+#[derive(Debug)]
+pub enum CustomErrors {
+    NoCategory,
+    IDNotFound
+}
+
+impl fmt::Display for CustomErrors {
+    fn fmt(&self, format: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CustomErrors::NoCategory => write!(format, "A categoria especificada não existe"),
+            CustomErrors::IDNotFound => write!(format, "O ID especificado não foi encontrado")
+        }
+    }
+}
+
+impl Error for CustomErrors {}
+
+#[derive(Debug)]
 pub struct Produto {
     pub nome: String,
-    pub id: String,
-    pub quantidade_estoque: i64,
+    pub id: u64,
+    pub quantidade_estoque: u64,
     pub valor: f64,
-    pub quantidade_restoque: i64,
+    pub quantidade_restoque: u64,
     pub data_restoque: chrono::NaiveDate,
     pub categoria: Categoria
 }
 
 impl Produto {
-    pub fn new(nome: String, id: String, quantidade_estoque: i64, valor: f64, quantidade_restoque: i64, data_restoque: chrono::NaiveDate, categoria: Categoria) -> Self {
+    pub fn new(nome: String, id: u64, quantidade_estoque: u64, valor: f64, quantidade_restoque: u64, data_restoque: chrono::NaiveDate, categoria: Categoria) -> Self {
         Produto {
             nome,
             id,
@@ -26,5 +55,107 @@ impl Produto {
             data_restoque,
             categoria
         }
+    }
+
+    pub fn default() -> Self {
+        Produto {
+            nome: String::new(),
+            id: 0,
+            quantidade_estoque: 0,
+            valor: 0.0,
+            quantidade_restoque: 0,
+            data_restoque: NaiveDate::default(),
+            categoria: Categoria::Geral
+        }
+    }
+}
+
+pub fn gather_option() -> Result<u64, Box<dyn Error>> {
+    screens::menu_screen();
+
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+
+    if buf.trim().to_lowercase() == "sair" {
+        return Ok(0);
+    }
+
+    let option: u64 = buf.trim().parse()?;
+    return Ok(option);
+}
+
+pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
+    loop {
+        screens::add_screen();
+
+        let mut buf = String::new();
+        io::stdin().read_line(&mut buf)?;
+
+        if buf.trim().to_lowercase() == "sair" {
+            return Ok(());
+        }
+
+        let mut fields = Vec::new();
+
+        for field in buf.split(',').collect::<Vec<&str>>() {
+            fields.push(field.trim());
+        }
+
+        if fields.len() != 6 {
+            eprintln!("Número insuficiente de argumentos.");
+            continue;
+        }
+
+        let product = match validation::validate_input(fields) {
+            Ok(product) => product,
+            Err(error) => {
+                eprintln!("Um erro ocorreu durante a conversão de argumentos: {error}.\nVerifique se todos os campos foram inseridos corretamente.");
+                continue;
+            }
+        };
+
+        // Atualizar o id com base na posição do item no arquivo e retornar o id
+
+        println!("{:#?}", product);
+        return Ok(());
+    }
+}
+
+pub fn register_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
+    println!("Insira o ID do produto:");
+
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf)?;
+
+    let id: u64 = buf.trim().parse()?;
+
+    // Procurar no arquivo o produto pelo id - função search_id
+
+    // se nao encontrar
+    //return Err(Box::new(CustomErrors::IDNotFound));
+
+    return Ok(());
+}
+
+pub fn search_id(file: &mut File, id: &mut u64, product: &mut Produto) -> Result<(), Box<dyn Error>> {
+    // Retorna a posição caso encontrado
+    // Retorna -1 caso não encontrar
+
+    return Ok(());
+}
+
+pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
+    file.seek(io::SeekFrom::Start(0))?;
+
+    return Ok(());
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn test_product() {
+        //add_product().unwrap();
     }
 }
