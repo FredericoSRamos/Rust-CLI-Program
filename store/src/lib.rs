@@ -18,7 +18,7 @@ pub enum Categoria {
 }
 
 #[derive(Debug)]
-pub enum Metodo {
+pub enum MetodoPagamento {
     Credito,
     Debito,
     Pix,
@@ -85,11 +85,11 @@ pub struct Venda {
     pub numero_produtos: u64,
     pub valor: f64,
     pub data_venda: chrono::NaiveDate,
-    pub metodo_pagamento: Metodo
+    pub metodo_pagamento: MetodoPagamento
 }
 
 impl Venda {
-    pub fn new(produto: String, id: u64, numero_produtos: u64, valor: f64, data_venda: chrono::NaiveDate, metodo_pagamento: Metodo) -> Self {
+    pub fn new(produto: String, numero_produtos: u64, valor: f64, data_venda: chrono::NaiveDate, metodo_pagamento: MetodoPagamento) -> Self {
         Venda {
             produto,
             numero_produtos,
@@ -99,7 +99,7 @@ impl Venda {
         }
     }
 }
-pub fn gather_option() -> Result<u64, Box<dyn Error>> {
+pub fn get_option() -> Result<u64, Box<dyn Error>> {
     screens::menu_screen();
 
     let mut buf = String::new();
@@ -115,7 +115,7 @@ pub fn gather_option() -> Result<u64, Box<dyn Error>> {
 
 pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
     loop {
-        screens::add_screen();
+        screens::add_product_screen();
 
         let mut buf = String::new();
         io::stdin().read_line(&mut buf)?;
@@ -124,11 +124,7 @@ pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
             return Ok(());
         }
 
-        let mut fields = Vec::new();
-
-        for field in buf.split(',').collect::<Vec<&str>>() {
-            fields.push(field.trim());
-        }
+        let fields: Vec<&str> = buf.split(',').map(|field| field.trim()).collect();
 
         if fields.len() != 6 {
             eprintln!("Número insuficiente de argumentos.");
@@ -149,53 +145,52 @@ pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
 
 pub fn register_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
     
-    screens::add_sale_screen();
+    loop {
+        screens::add_sale_screen();
 
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
+        let mut buf = String::new();
+        io::stdin().read_line(&mut buf)?;
 
-    if buf.trim().to_lowercase() == "sair" {
-        return Ok(());
-    }
+        if buf.trim().to_lowercase() == "sair" {
+            return Ok(());
+        }
 
-    let mut fields = Vec::new();
+        let fields: Vec<&str> = buf.split(',').map(|field| field.trim()).collect();
 
-    for field in buf.split(',').collect::<Vec<&str>>() {
-        fields.push(field.trim());
-    }
-
-    if fields.len() != 5 {
-        eprintln!("Número insuficiente de argumentos.");
-        continue;
-    }
-
-    let sale = match validation::validate_input_sale(fields) {
-        Ok(sale) => sale,
-        Err(error) => {
-            eprintln!("Um erro ocorreu durante a conversão de argumentos: {error}.\nVerifique se todos os campos foram inseridos corretamente.");
+        if fields.len() != 5 {
+            eprintln!("Número insuficiente de argumentos.");
             continue;
+        }
+
+        let sale = match validation::validate_input_sale(fields) {
+            Ok(sale) => sale,
+            Err(error) => {
+                eprintln!("Um erro ocorreu durante a conversão de argumentos: {error}.\nVerifique se todos os campos foram inseridos corretamente.");
+                continue;
             }
         };
 
-    println!("Insira o ID do produto:");
-
-    let mut buf2 = String::new();
-    io::stdin().read_line(&mut buf2)?;
-
-    let id: u64 = buf2.trim().parse()?;
+        return Ok(());
+    }
 
     // Procurar no arquivo o produto pelo id - função search_id
     // inserir venda no arquivo de vendas
     // se nao encontrar
     //return Err(Box::new(CustomErrors::IDNotFound));
+}
+
+pub fn search_id(file: &mut File, id: u64, product: &mut Produto) -> Result<(), Box<dyn Error>> {
+
+    // Retorna o produto caso encontrado com base no id (posição)
+    // Retorna -1 caso não encontrado
 
     return Ok(());
 }
 
-pub fn search_id(file: &mut File, id: &mut u64, product: &mut Produto) -> Result<(), Box<dyn Error>> {
+pub fn search_product(file: &mut File, produto: &mut Produto) -> Result<(), Box<dyn Error>> {
 
-    // Retorna a posição caso encontrado
-    // Retorna -1 caso não encontrar
+    // Retorna o produto caso encontrado com base no nome
+    // Retorna -1 caso não encontrado
 
     return Ok(());
 }
@@ -207,7 +202,7 @@ pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
 }
 
 
-pub fn search_sale_data(file: &mut File, data: &mut chrono::NaiveDate, product: &mut Produto) -> Result<(), Box<dyn Error>> {
+pub fn search_sale_date(file: &mut File, data: chrono::NaiveDate) -> Result<(), Box<dyn Error>> {
 
     // Retorna as vendas com esta data caso encontrado
     // Retorna -1 caso não encontrar
@@ -215,7 +210,7 @@ pub fn search_sale_data(file: &mut File, data: &mut chrono::NaiveDate, product: 
     return Ok(());
 }
 
-pub fn search_sale_product(&mut file) -> Result<(), Box<dyn Error>>{
+pub fn search_product_sales(file: &mut File) -> Result<(), Box<dyn Error>> {
 
     println!("insira nome do produto cujo interesse na vendas:");
     
