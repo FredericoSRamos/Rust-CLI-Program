@@ -1,33 +1,51 @@
-use std::{fs::File, process};
+use store::{core, validation};
 
 extern crate store;
 
 fn main() {
-    let mut file = File::open(store::validation::get_path()).unwrap_or_else(|error| {
-        eprintln!("Ocorreu um erro tentando abrir o arquivo: {error}.");
-        process::exit(1);
-    });
 
-    let mut produto = store::Produto::default();
+    let (mut products_file, mut sales_file, mut sales_index_file) = validation::get_files();
+
+    println!("Insira o caixa que está realizando as vendas:");
+    let mut seller = validation::get_string();
 
     loop {
-        let option = match store::get_option() {
-            Ok(option) => option,
-            Err(error) => {
-                eprintln!("Ocorreu um erro ao tentar pegar a opção selecionada: {error}.\nCertifique-se de ter digitado corretamente a opção desejada");
-                continue;
+        let result = match validation::get_option() {
+            0 => return,
+            1 => core::add_product(&mut products_file),
+            2 => core::register_sale(&mut products_file, &mut sales_file, &mut sales_index_file, seller.clone()),
+            3 => match validation::validate_id_search() {
+                Ok(id) => match core::search_product_id(&mut products_file, id) {
+                    Ok(product) => {
+                        println!("{product}");
+                        Ok(())
+                    },
+                    Err(error) => Err(error)
+                },
+                Err(error) => Err(Box::new(error) as Box<dyn std::error::Error>)
             }
-        };
+            4 => match core::search_product_name(&mut products_file) {
+                Ok(product) => {
+                    println!("{product}");
+                    Ok(())
+                },
+                Err(error) => Err(error)
+            },
+            5 => core::products_needing_restock(&mut products_file),
+            6 => match validation::validate_date() {
+                Ok(date) => core::search_sales_by_date(&mut sales_file, &mut sales_index_file, date),
+                Err(error) => Err(Box::new(error) as Box<dyn std::error::Error>)
+            },
+            7 => match validation::validate_id_search() {
+                Ok(id) => core::search_product_sales(&mut sales_file, &mut sales_index_file, id),
+                Err(error) => Err(Box::new(error) as Box<dyn std::error::Error>)
+            },
+            8 => {
+                println!("Insira o caixa que está realizando as vendas:");
+                seller = validation::get_string();
 
-        let result = match option {
-            0 => process::exit(0),
-            1 => store::add_product(&mut file),
-            2 => store::register_sale(&mut file),
-            3 => store::search_id(&mut file, store::validation::validate_id_search(), &mut produto),
-            4 => store::search_product(&mut file, &mut produto),
-            5 => store::products_needing_restock(&mut file),
-            6 => store::search_sale_date(&mut file, store::validation::validate_date()),
-            7 => store::search_product_sales(&mut file),
+                Ok(())
+            },
             _ => {
                 eprintln!("Insira um valor válido de operação");
                 continue;

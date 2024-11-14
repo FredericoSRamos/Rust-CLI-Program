@@ -1,15 +1,15 @@
 use std::fmt;
-use std::fs::File;
-use std::io::{self, Seek};
-use std::error::Error;
 
+use chrono;
+use serde::{Serialize, Deserialize};
 
-use chrono::{self, NaiveDate};
-
-pub mod validation;
+pub mod core;
+pub mod date;
+pub mod errors;
 pub mod screens;
+pub mod validation;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub enum Categoria {
     Eletronico,
     Roupa,
@@ -17,7 +17,18 @@ pub enum Categoria {
     Geral
 }
 
-#[derive(Debug)]
+impl std::fmt::Display for Categoria {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Categoria::Alimento => write!(f, "Alimento"),
+            Categoria::Eletronico => write!(f, "Eletrônico"),
+            Categoria::Roupa => write!(f, "Roupa"),
+            Categoria::Geral => write!(f, "Geral")
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 pub enum MetodoPagamento {
     Credito,
     Debito,
@@ -25,32 +36,27 @@ pub enum MetodoPagamento {
     Dinheiro
 }
 
-#[derive(Debug)]
-pub enum CustomErrors {
-    NoCategory,
-    IDNotFound
-}
-
-impl fmt::Display for CustomErrors {
-    fn fmt(&self, format: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for MetodoPagamento {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CustomErrors::NoCategory => write!(format, "A categoria especificada não existe"),
-            CustomErrors::IDNotFound => write!(format, "O ID especificado não foi encontrado")
+            MetodoPagamento::Credito => write!(f, "Cartão de crédito"),
+            MetodoPagamento::Debito => write!(f, "Cartão de débito"),
+            MetodoPagamento::Dinheiro => write!(f, "Dinheiro"),
+            MetodoPagamento::Pix => write!(f, "PIX")
         }
     }
 }
 
-impl Error for CustomErrors {}
-
-#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct Produto {
-    pub nome: String,
-    pub id: u64,
-    pub quantidade_estoque: u64,
-    pub valor: f64,
-    pub quantidade_restoque: u64,
-    pub data_restoque: chrono::NaiveDate,
-    pub categoria: Categoria
+    nome: String,
+    id: u64,
+    quantidade_estoque: u64,
+    valor: f64,
+    quantidade_restoque: u64,
+    categoria: Categoria,
+    #[serde(with = "date")]
+    data_restoque: chrono::NaiveDate
 }
 
 impl Produto {
@@ -65,173 +71,42 @@ impl Produto {
             categoria
         }
     }
+}
 
-    pub fn default() -> Self {
-        Produto {
-            nome: String::new(),
-            id: 0,
-            quantidade_estoque: 0,
-            valor: 0.0,
-            quantidade_restoque: 0,
-            data_restoque: NaiveDate::default(),
-            categoria: Categoria::Geral
-        }
+impl std::fmt::Display for Produto {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}\nID: {}\nEstoque: {}\nPreço: R${:.2}\nMínimo para restoque: {}\nData do último restoque: {}\nCategoria: {}",
+                self.nome, self.id, self.quantidade_estoque, self.valor, self.quantidade_restoque, self.data_restoque, self.categoria)
     }
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct Venda {
-    pub produto: String,
-    pub numero_produtos: u64,
-    pub valor: f64,
-    pub data_venda: chrono::NaiveDate,
-    pub metodo_pagamento: MetodoPagamento
+    vendedor: String,
+    produtos: Vec<u64>,
+    codigo: u64,
+    valor: f64,
+    metodo_pagamento: MetodoPagamento,
+    #[serde(with = "date")]
+    data: chrono::NaiveDate
 }
 
 impl Venda {
-    pub fn new(produto: String, numero_produtos: u64, valor: f64, data_venda: chrono::NaiveDate, metodo_pagamento: MetodoPagamento) -> Self {
+    pub fn new(vendedor: String, codigo: u64, valor: f64, data: chrono::NaiveDate, metodo_pagamento: MetodoPagamento) -> Self {
         Venda {
-            produto,
-            numero_produtos,
+            vendedor,
+            produtos: Vec::new(),
+            codigo,
             valor,
-            data_venda,
+            data,
             metodo_pagamento
         }
     }
 }
-pub fn get_option() -> Result<u64, Box<dyn Error>> {
-    screens::menu_screen();
 
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-
-    if buf.trim().to_lowercase() == "sair" {
-        return Ok(0);
-    }
-
-    let option: u64 = buf.trim().parse()?;
-    return Ok(option);
-}
-
-pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
-    loop {
-        screens::add_product_screen();
-
-        let mut buf = String::new();
-        io::stdin().read_line(&mut buf)?;
-
-        if buf.trim().to_lowercase() == "sair" {
-            return Ok(());
-        }
-
-        let fields: Vec<&str> = buf.split(',').map(|field| field.trim()).collect();
-
-        if fields.len() != 6 {
-            eprintln!("Número insuficiente de argumentos.");
-            continue;
-        }
-
-        let product = match validation::validate_input(fields) {
-            Ok(product) => product,
-            Err(error) => {
-                eprintln!("Um erro ocorreu durante a conversão de argumentos: {error}.\nVerifique se todos os campos foram inseridos corretamente.");
-                continue;
-            }
-        };
-        
-          // Atualizar o id com base na posição do item no arquivo e retornar o id
-    }
-}
-
-pub fn register_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
-    
-    loop {
-        screens::add_sale_screen();
-
-        let mut buf = String::new();
-        io::stdin().read_line(&mut buf)?;
-
-        if buf.trim().to_lowercase() == "sair" {
-            return Ok(());
-        }
-
-        let fields: Vec<&str> = buf.split(',').map(|field| field.trim()).collect();
-
-        if fields.len() != 5 {
-            eprintln!("Número insuficiente de argumentos.");
-            continue;
-        }
-
-        let sale = match validation::validate_input_sale(fields) {
-            Ok(sale) => sale,
-            Err(error) => {
-                eprintln!("Um erro ocorreu durante a conversão de argumentos: {error}.\nVerifique se todos os campos foram inseridos corretamente.");
-                continue;
-            }
-        };
-
-        return Ok(());
-    }
-
-    // Procurar no arquivo o produto pelo id - função search_id
-    // inserir venda no arquivo de vendas
-    // se nao encontrar
-    //return Err(Box::new(CustomErrors::IDNotFound));
-}
-
-pub fn search_id(file: &mut File, id: u64, product: &mut Produto) -> Result<(), Box<dyn Error>> {
-
-    // Retorna o produto caso encontrado com base no id (posição)
-    // Retorna -1 caso não encontrado
-
-    return Ok(());
-}
-
-pub fn search_product(file: &mut File, produto: &mut Produto) -> Result<(), Box<dyn Error>> {
-
-    // Retorna o produto caso encontrado com base no nome
-    // Retorna -1 caso não encontrado
-
-    return Ok(());
-}
-
-pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
-    file.seek(io::SeekFrom::Start(0))?;
-
-    return Ok(());
-}
-
-
-pub fn search_sale_date(file: &mut File, data: chrono::NaiveDate) -> Result<(), Box<dyn Error>> {
-
-    // Retorna as vendas com esta data caso encontrado
-    // Retorna -1 caso não encontrar
-
-    return Ok(());
-}
-
-pub fn search_product_sales(file: &mut File) -> Result<(), Box<dyn Error>> {
-
-    println!("insira nome do produto cujo interesse na vendas:");
-    
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-
-    buf.trim().to_string();
-
-    //procurar no arquivo de vendas o produto
-    //exibir todas suas vendas
-    //Retornar -1 caso não encontrar venda
-
-    return Ok(());
-}
-
-#[cfg(test)]
-pub mod tests {
-    use super::*;
-
-    #[test]
-    fn test_product() {
-        //add_product().unwrap();
+impl std::fmt::Display for Venda {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Data da venda: {}\nVenda realizada por: {}\nCódigo: {}\nValor: R${:.2}\nMétodo de pagamento: {}\nProdutos vendidos:\n{:#?}",
+                self.data, self.vendedor, self.codigo, self.valor, self.metodo_pagamento, self.produtos)
     }
 }
