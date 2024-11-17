@@ -14,13 +14,10 @@ Digite 'sair' para cancelar");
 
 pub fn add_product_screen() {
     println!("\
-Insira a descrição do produto com os campos separados por ',' ou insira 'sair' para cancelar
+Insira a descrição do produto com os campos separados por ',' ou insira 'sair' para cancelar.
 [Nome, quantidade_em_estoque, valor, quantidade_para_restoque, data_de_restoque (dd/mm/YYYY), categoria]");
 }
 
 pub fn add_sale_screen() {
-    println!("\
-Insira a descrição da venda com os campos separados por ',' ou insira 'sair' para cancelar
-[Produto, numero_produtos, valor, data_de_restoque (dd/mm/YYYY), metodo_pagamento]");
+    println!("Insira o id dos produtos vendidos e digite 'concluir' ou insira 'sair' para cancelar.");
 }
-
