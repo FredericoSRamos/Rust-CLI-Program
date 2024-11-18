@@ -1,94 +1,95 @@
 use super::{Produto, Categoria, MetodoPagamento, errors};
-use std::error::Error;
+use std::{error::Error, fs::{File, OpenOptions}, process};
 
-pub fn get_option() -> Result<u64, Box<dyn Error>> {
-    super::screens::menu_screen();
+pub fn get_files() -> (File, File, File) {
+    println!("Insira o caminho para o arquivo de armazenamento de produtos:");
+    let products_file = get_file();
 
-    let mut buf = String::new();
-    std::io::stdin().read_line(&mut buf)?;
+    println!("Insira o caminho para o arquivo de vendas:");
+    let sales_file = get_file();
 
-    if buf.trim().to_lowercase() == "sair" {
-        return Ok(0);
-    }
+    println!("Insira o caminho para o arquivo índex de vendas:");
+    let sales_index_file = get_file();
 
-    let option: u64 = buf.trim().parse()?;
-    return Ok(option);
+    (products_file, sales_file, sales_index_file)
 }
 
-pub fn get_path() -> String {
+fn get_file() -> File {
+    OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(get_string())
+        .unwrap_or_else(|error| {
+            eprintln!("Ocorreu um erro tentando abrir o arquivo: {error}.");
+            process::exit(1);
+        })
+}
+
+pub fn get_option() -> u64 {
     loop {
-        println!("Insira o caminho para o arquivo de armazenamento (ou 'sair' para cancelar a operação):");
+        super::screens::menu_screen();
 
         let mut buf = String::new();
-
         if let Err(error) = std::io::stdin().read_line(&mut buf) {
-            eprintln!("Um erro ocorreu ao tentar ler o caminho do arquivo: {error}.");
+            eprintln!("Ocorreu um erro ao tentar ler a opção selecionada: {error}.\nCertifique-se de ter inserido corretamente.");
             continue;
-        }
+        };
 
         if buf.trim().to_lowercase() == "sair" {
-            std::process::exit(0);
+            return 0;
+        }
+
+        let option: u64 = match buf.trim().parse() {
+            Ok(value) => value,
+            Err(error) => {
+                eprintln!("Ocorreu um erro ao tentar ler a opção selecionada: {error}.\nCertifique-se de ter inserido corretamente.");
+                continue;
+            }
+        };
+
+        return option;
+    }
+}
+
+pub fn get_string() -> String {
+    loop {
+        let mut buf = String::new();
+        if let Err(error) = std::io::stdin().read_line(&mut buf) {
+            eprintln!("Um erro ocorreu na leitura: {error}.");
+            continue;
         }
 
         return buf.trim().to_string();
     }
 }
 
-pub fn set_seller() -> String {
+pub fn validate_string() -> Result<String, errors::CustomErrors> {
     loop {
-        println!("Insira o caixa que está realizando as vendas (ou 'sair' para cancelar a operação):");
-
         let mut buf = String::new();
-
         if let Err(error) = std::io::stdin().read_line(&mut buf) {
-            eprintln!("Um erro ocorreu ao tentar ler o caminho do arquivo: {error}.");
+            eprintln!("Um erro ocorreu na leitura: {error}.");
             continue;
         }
 
         if buf.trim().to_lowercase() == "sair" {
-            std::process::exit(0);
+            return Err(errors::CustomErrors::OperationCanceled);
         }
 
-        return buf.trim().to_string();
+        return Ok(buf.trim().to_string());
     }
 }
 
-pub fn validate_id_search() -> u64 {
+pub fn validate_id_search() -> Result<u64, errors::CustomErrors> {
     loop {
         println!("Digite o ID do produto que deseja procurar (ou sair para cancelar a operação):");
 
-        let mut buf = String::new();
-        if let Err(error) = std::io::stdin().read_line(&mut buf) {
-            eprintln!("Um erro ocorreu ao tentar ler o ID desejado: {error}.");
-            continue;
-        }
+        let buf = validate_string()?;
 
-        if buf.trim().to_lowercase() == "sair" {
-            std::process::exit(0);
-        }
-
-        match validate_int(buf.trim()) {
-            Ok(id) => return id,
+        match validate_int(&buf) {
+            Ok(id) => return Ok(id),
             Err(error) => eprintln!("Um erro ocorreu ao tentar converter o ID: {error}.\nCertifique-se de que um valor válido foi inserido.")
         };
-    }
-}
-
-pub fn validate_str_search() -> String {
-    loop {
-        println!("Digite o nome do produto que deseja procurar (ou sair para cancelar a operação):");
-
-        let mut buf = String::new();
-        if let Err(error) = std::io::stdin().read_line(&mut buf) {
-            eprintln!("Um erro ocorreu ao tentar ler o nome desejado: {error}.");
-            continue;
-        }
-
-        if buf.trim().to_lowercase() == "sair" {
-            std::process::exit(0);
-        }
-
-        return buf.trim().to_string();
     }
 }
 
@@ -102,7 +103,7 @@ pub fn validate_float(string: &str) -> Result<f64, std::num::ParseFloatError> {
     return Ok(number);
 }
 
-pub fn validate_input(input: Vec<&str>) -> Result<Produto, Box<dyn Error>> {
+pub fn validate_product(input: Vec<&str>) -> Result<Produto, Box<dyn Error>> {
     if input[0].len() > 40 {
         return Err(Box::new(errors::CustomErrors::NameTooLong));
     }
@@ -125,6 +126,21 @@ pub fn validate_input(input: Vec<&str>) -> Result<Produto, Box<dyn Error>> {
     return Ok(Produto::new(input[0].to_string(), 0, quantidade_estoque, valor, quantidade_restoque, data_restoque, categoria));
 }
 
+pub fn validate_sale(string: &str) -> Result<(u64, u64), Box<dyn Error>> {
+    let info: Vec<&str> = string.split_whitespace().collect();
+    let amount: u64;
+
+    match info.len() {
+        1 => amount = 1,
+        2 => amount =  validate_int(info[1])?,
+        _ => return Err(Box::new(errors::CustomErrors::TooManyArguments))
+    }
+
+    let value = validate_int(info[0])?;
+
+    Ok((value, amount))
+}
+
 pub fn validate_payment_method() -> Result<MetodoPagamento, Box<dyn Error>> {
     println!("Insira a forma de pagamento:");
 
@@ -132,7 +148,7 @@ pub fn validate_payment_method() -> Result<MetodoPagamento, Box<dyn Error>> {
 
     std::io::stdin().read_line(&mut buf)?;
     
-    let metodo_pagamento = match buf.trim().to_lowercase().as_str() {
+    let payment_method = match buf.trim().to_lowercase().as_str() {
         "credito" => MetodoPagamento::Credito,
         "debito" => MetodoPagamento::Debito,
         "pix" => MetodoPagamento::Pix,
@@ -142,25 +158,17 @@ pub fn validate_payment_method() -> Result<MetodoPagamento, Box<dyn Error>> {
         }
     };
 
-    return Ok(metodo_pagamento);
+    return Ok(payment_method);
 }
 
-pub fn validate_date() -> chrono::NaiveDate {
+pub fn validate_date() -> Result<chrono::NaiveDate, errors::CustomErrors> {
     loop {
         println!("Digite a data de venda que deseja procurar seguindo o formato dd/mm/YYYY ou digite 'sair' para cancelar");
 
-        let mut buf = String::new();
-        if let Err(error) = std::io::stdin().read_line(&mut buf) {
-            eprintln!("Ocorreu um erro ao tentar ler a data inserida {error}.");
-            continue;
-        };
+        let buf = validate_string()?;
 
-        if buf.trim().to_lowercase() == "sair" {
-            std::process::exit(0);
-        }
-
-        match chrono::NaiveDate::parse_from_str(buf.trim(), "%d/%m/%Y") {
-            Ok(date) => return date,
+        match chrono::NaiveDate::parse_from_str(&buf, "%d/%m/%Y") {
+            Ok(date) => return Ok(date),
             Err(error) => eprintln!("Ocorreu um erro ao tentar ler a data informada: {error}.\nCertifique-se de que a data está inserida no formato correto.")
         }
     }
