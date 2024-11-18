@@ -6,8 +6,6 @@ fn main() {
 
     let (mut products_file, mut sales_file, mut sales_index_file) = validation::get_files();
 
-    let mut produto = store::Produto::default();
-
     println!("Insira o caixa que está realizando as vendas:");
     let mut seller = validation::get_string();
 
@@ -17,16 +15,21 @@ fn main() {
             1 => core::add_product(&mut products_file),
             2 => core::register_sale(&mut products_file, &mut sales_file, &mut sales_index_file, seller.clone()),
             3 => match validation::validate_id_search() {
-                Ok(id) => core::search_product_id(&mut products_file, id, &mut produto),
+                Ok(id) => match core::search_product_id(&mut products_file, id) {
+                    Ok(product) => {
+                        println!("{product}");
+                        Ok(())
+                    },
+                    Err(error) => Err(error)
+                },
                 Err(error) => Err(Box::new(error) as Box<dyn std::error::Error>)
-            },
-            4 => {
-                println!("Digite o nome do produto que deseja procurar (ou sair para cancelar a operação):");
-
-                match validation::validate_string() {
-                    Ok(string) => core::search_product_name(&mut products_file, string, &mut produto),
-                    Err(error) => Err(Box::new(error) as Box<dyn std::error::Error>)
-                }
+            }
+            4 => match core::search_product_name(&mut products_file) {
+                Ok(product) => {
+                    println!("{product}");
+                    Ok(())
+                },
+                Err(error) => Err(error)
             },
             5 => core::products_needing_restock(&mut products_file),
             6 => match validation::validate_date() {
