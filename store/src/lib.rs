@@ -1,6 +1,6 @@
 use std::fmt;
 
-use chrono::{self, NaiveDate};
+use chrono;
 use serde::{Serialize, Deserialize};
 
 pub mod core;
@@ -69,18 +69,6 @@ impl Produto {
             quantidade_restoque,
             data_restoque,
             categoria
-        }
-    }
-
-    pub fn default() -> Self {
-        Produto {
-            nome: String::new(),
-            id: 0,
-            quantidade_estoque: 0,
-            valor: 0.0,
-            quantidade_restoque: 0,
-            data_restoque: NaiveDate::default(),
-            categoria: Categoria::Geral
         }
     }
 }
