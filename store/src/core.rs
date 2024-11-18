@@ -16,10 +16,10 @@ pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
             return Ok(());
         }
 
-        let fields: Vec<&str> = buf.split(',').map(|field| field.trim()).collect();
+        let fields: Vec<&str> = buf.split(' ').map(|field| field.trim()).collect();
 
         if fields.len() != 6 {
-            eprintln!("Número insuficiente de argumentos.");
+            eprintln!("Número incorreto de argumentos.");
             continue;
         }
 
@@ -35,7 +35,7 @@ pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
         };
     }
 
-    product.id = file.seek(io::SeekFrom::End(0))? / PRODUCT_LENGTH as u64 + 1;
+    product.id = file.seek(SeekFrom::End(0))? / PRODUCT_LENGTH as u64 + 1;
 
     let mut serialized = bincode::serialize(&product)?;
     serialized.resize(PRODUCT_LENGTH, 0);
@@ -64,20 +64,19 @@ pub fn register_sale(products_file: &mut File, sales_file: &mut File, sales_inde
         products.push(validation::validate_sale(buf.trim())?);
     }
 
-    let mut product = Produto::default();
     let mut valor: f64 = 0.0;
 
-    for id in products.iter() {
-        search_product_id(products_file, id.0, &mut product)?;
+    for info in products.iter() {
+        let mut product = search_product_id(products_file, info.0)?;
 
-        valor += product.valor * id.1 as f64;
+        valor += product.valor * info.1 as f64;
 
-        match id.1 < product.quantidade_estoque {
+        match info.1 < product.quantidade_estoque {
             true => return Err(Box::new(errors::CustomErrors::EmptyStock)),
-            false => product.quantidade_estoque -= id.1
+            false => product.quantidade_estoque -= info.1
         }
 
-        let position = PRODUCT_LENGTH as u64 * (id.0 - 1);
+        let position = PRODUCT_LENGTH as u64 * (info.0 - 1);
         products_file.seek(SeekFrom::Start(position))?;
 
         let mut serialized = bincode::serialize(&product)?;
@@ -101,34 +100,35 @@ pub fn register_sale(products_file: &mut File, sales_file: &mut File, sales_inde
     Ok(())
 }
 
-pub fn search_product_id(file: &mut File, id: u64, product: &mut Produto) -> Result<(), Box<dyn Error>> {
-
+pub fn search_product_id(file: &mut File, id: u64) -> Result<Produto, Box<dyn Error>> {
     let position = PRODUCT_LENGTH as u64 * (id - 1);
     file.seek(SeekFrom::Start(position))?;
 
     let mut buf = [0; PRODUCT_LENGTH];
     file.read_exact(&mut buf)?;
-    *product = bincode::deserialize(&buf)?;
+    let product: Produto = bincode::deserialize(&buf)?;
 
-    return Ok(());
+    return Ok(product);
 }
 
-pub fn search_product_name(file: &mut File, name: String, product: &mut Produto) -> Result<(), Box<dyn Error>> {
+pub fn search_product_name(file: &mut File) -> Result<Produto, Box<dyn Error>> {
+    println!("Digite o nome do produto que deseja procurar (ou sair para cancelar a operação):");
+    
+    let name = validation::validate_string()?;
     let mut buf = [0; PRODUCT_LENGTH];
 
     file.seek(SeekFrom::Start(0))?;
 
-    while let Ok(_) = file.read_exact(&mut buf) {
+    loop {
+        file.read_exact(&mut buf)?;
 
-        *product = bincode::deserialize(&buf)?;
+        let product: Produto = bincode::deserialize(&buf)?;
 
         if product.nome == name {
             println!("Produto encontrado.");
-            return Ok(());
+            return Ok(product);
         }
     }
-
-    Ok(())
 }
 
 pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
@@ -187,4 +187,53 @@ pub fn search_product_sales(sales_file: &mut File, sales_index_file: &mut File, 
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, OpenOptions};
+
+    #[test]
+    fn test_add_product() {
+        let path = "test_add.bin";
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)
+            .expect("Não foi possível criar o arquivo.");
+
+        let mut buf = [0; PRODUCT_LENGTH];
+        let mut produto: Produto;
+
+        for i in 1.. {
+            let size_before = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
+
+            add_product(&mut file).unwrap_or_else(|error| {
+                panic!("Um erro ocorreu ao tentar adicionar ao arquivo: {error}.");
+            });
+
+            let size_after = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
+
+            if size_before == size_after {
+                break;
+            }
+
+            if size_after != PRODUCT_LENGTH as u64 * i {
+                panic!("Produto não foi adicionado ao arquivo.");
+            }
+
+            file.seek(SeekFrom::Start(PRODUCT_LENGTH as u64 * (i - 1))).expect("Erro no arquivo.");
+            file.read_exact(&mut buf).expect("Erro na leitura.");
+            produto = bincode::deserialize(&buf).expect("Erro na desserialização.");
+
+            if produto.id != i {
+                panic!("Produto foi escrito incorretamente no arquivo.")
+            }
+
+            println!("{produto}");
+        }
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
+    }
 }
