@@ -189,6 +189,10 @@ pub fn search_product_sales(sales_file: &mut File, sales_index_file: &mut File, 
     Ok(())
 }
 
+pub fn create_test_file(){
+    
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,4 +240,73 @@ mod tests {
         }
         fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
     }
+
+    #[test]
+    fn test_search_product_id(){
+        let path = "test_searchId.bin";
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)
+            .expect("Não foi possível criar o arquivo.");
+        
+        let mut produto: Produto;
+
+        let size_file = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
+
+        for i .. size_file  { 
+    
+            produto = search_product_id(&mut file, i).unwrap_or_else(|error| {
+                panic!("Um erro ocorreu ao buscar id no arquivo: {error}.");
+            });
+    
+            file.seek(SeekFrom::Start(PRODUCT_LENGTH as u64 * (i - 1))).expect("Erro no arquivo.");
+    
+            println!("{produto}");
+        }
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
+
+    }
+
+    #[test]
+    fn test_search_product_name(){
+        let path = "test_add.bin";
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)
+            .expect("Não foi possível criar o arquivo.");
+        
+        let mut produto: Produto;
+    
+
+        produto = search_product_name(&mut file).unwrap_or_else(|error| {
+            panic!("Um erro ocorreu ao buscar nome no arquivo: {error}.");
+        });
+    
+            println!("{produto}");
+        }
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
+    
+    #[test]
+    fn test_products_needing_restock(){
+        let path = "test_need_restock.bin";
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)
+            .expect("Não foi possível criar o arquivo.");
+        
+    
+        products_needing_restock(&mut file).unwrap_or_else(|error| {
+            panic!("Um erro ocorreu ao ler arquivo de produtos necessitando restoque: {error}.");
+        });   
+
+        println!("{produto}");
+        }
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
+
 }
