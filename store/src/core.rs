@@ -190,6 +190,15 @@ pub fn search_product_sales(sales_file: &mut File, sales_index_file: &mut File, 
 }
 
 pub fn create_test_file(){
+    let path = "test_file.bin";
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(path)
+        .expect("Não foi possível criar o arquivo.");
+
+    add_product(&mut file);
     
 }
 
@@ -243,13 +252,8 @@ mod tests {
 
     #[test]
     fn test_search_product_id(){
-        let path = "test_searchId.bin";
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)
-            .expect("Não foi possível criar o arquivo.");
+        
+        create_test_file();
         
         let mut produto: Produto;
 
@@ -271,13 +275,8 @@ mod tests {
 
     #[test]
     fn test_search_product_name(){
-        let path = "test_add.bin";
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)
-            .expect("Não foi possível criar o arquivo.");
+
+        create_test_file();
         
         let mut produto: Produto;
     
@@ -292,14 +291,8 @@ mod tests {
     
     #[test]
     fn test_products_needing_restock(){
-        let path = "test_need_restock.bin";
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)
-            .expect("Não foi possível criar o arquivo.");
         
+        create_test_file();
     
         products_needing_restock(&mut file).unwrap_or_else(|error| {
             panic!("Um erro ocorreu ao ler arquivo de produtos necessitando restoque: {error}.");
