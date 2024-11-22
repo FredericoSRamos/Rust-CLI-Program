@@ -286,9 +286,9 @@ mod tests {
         });
     
             println!("{produto}");
-        }
+        
         fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
-    
+    }
     #[test]
     fn test_products_needing_restock(){
         
@@ -299,7 +299,7 @@ mod tests {
         });   
 
         println!("{produto}");
-        }
+        
         fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
-
+    }
 }
