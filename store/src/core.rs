@@ -189,7 +189,7 @@ pub fn search_product_sales(sales_file: &mut File, sales_index_file: &mut File, 
     Ok(())
 }
 
-pub fn create_test_file(){
+pub fn create_test_file() -> mut file {
     let path = "test_file.bin";
     let mut file = OpenOptions::new()
         .read(true)
@@ -253,7 +253,8 @@ mod tests {
     #[test]
     fn test_search_product_id(){
         
-        create_test_file();
+        let file = create_test_file();
+        let path = "test_file.bin"
         
         let mut produto: Produto;
 
@@ -276,7 +277,8 @@ mod tests {
     #[test]
     fn test_search_product_name(){
 
-        create_test_file();
+        let mut file = create_test_file();
+        let path = "test_file.bin"
         
         let mut produto: Produto;
     
@@ -292,7 +294,8 @@ mod tests {
     #[test]
     fn test_products_needing_restock(){
         
-        create_test_file();
+        let mut file = create_test_file();
+        let path = "test_file.bin"
     
         products_needing_restock(&mut file).unwrap_or_else(|error| {
             panic!("Um erro ocorreu ao ler arquivo de produtos necessitando restoque: {error}.");
