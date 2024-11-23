@@ -10,7 +10,7 @@ pub mod screens;
 pub mod validation;
 
 #[derive(Serialize, Deserialize)]
-pub enum Categoria {
+enum Categoria {
     Eletronico,
     Roupa,
     Alimento,
@@ -60,7 +60,7 @@ pub struct Produto {
 }
 
 impl Produto {
-    pub fn new(nome: String, id: u64, quantidade_estoque: u64, valor: f64, quantidade_restoque: u64, data_restoque: chrono::NaiveDate, categoria: Categoria) -> Self {
+    fn new(nome: String, id: u64, quantidade_estoque: u64, valor: f64, quantidade_restoque: u64, data_restoque: chrono::NaiveDate, categoria: Categoria) -> Self {
         Produto {
             nome,
             id,
@@ -92,7 +92,7 @@ pub struct Venda {
 }
 
 impl Venda {
-    pub fn new(vendedor: String, codigo: u64, valor: f64, data: chrono::NaiveDate, metodo_pagamento: MetodoPagamento) -> Self {
+    fn new(vendedor: String, codigo: u64, valor: f64, data: chrono::NaiveDate, metodo_pagamento: MetodoPagamento) -> Self {
         Venda {
             vendedor,
             produtos: Vec::new(),
