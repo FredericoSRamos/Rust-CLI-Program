@@ -4,11 +4,17 @@ Controle De Estoque
 1 - Adicionar produtos
 2 - Registrar venda
 3 - Buscar produto por id
-4 - Buscar produto por nome
+4 - Listar produtos
 5 - Emitir relatório de produtos com necessidade de restoque
-6 - Buscar vendas por data
-7 - Buscar vendas de um produto
-8 - Atualizar caixa em serviço
+6 - Atualizar produto
+7 - Remover produto
+8 - Buscar venda por código
+9 - Buscar vendas por data
+10 - Buscar vendas de um produto
+11 - Listar vendas
+12 - Atualizar venda
+13 - Remover venda
+14 - Atualizar caixa em serviço
 
 Digite 'sair' para encerrar o programa");
 }
