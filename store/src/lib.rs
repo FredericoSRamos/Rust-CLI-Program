@@ -76,7 +76,7 @@ impl Produto {
 impl std::fmt::Display for Produto {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}\nID: {}\nEstoque: {}\nPreço: R${:.2}\nMínimo para restoque: {}\nData do último restoque: {}\nCategoria: {}",
-                self.nome, self.id, self.quantidade_estoque, self.valor, self.quantidade_restoque, self.data_restoque, self.categoria)
+                self.nome, self.id, self.quantidade_estoque, self.valor, self.quantidade_restoque, self.data_restoque.format("%d/%m/%Y"), self.categoria)
     }
 }
 
@@ -107,6 +107,6 @@ impl Venda {
 impl std::fmt::Display for Venda {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Data da venda: {}\nVenda realizada por: {}\nCódigo: {}\nValor: R${:.2}\nMétodo de pagamento: {}\nProdutos vendidos:\n{:#?}",
-                self.data, self.vendedor, self.codigo, self.valor, self.metodo_pagamento, self.produtos)
+                self.data.format("%d/%m/%Y"), self.vendedor, self.codigo, self.valor, self.metodo_pagamento, self.produtos)
     }
 }

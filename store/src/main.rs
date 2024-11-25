@@ -66,7 +66,14 @@ fn main() {
         };
 
         if let Err(error) = result {
-            eprintln!("Um erro ocorreu durante a operação: {error}");
+            if let Some(custom) = error.downcast_ref::<store::errors::CustomErrors>() {
+                match custom {
+                    store::errors::CustomErrors::OperationCanceled => (),
+                    _ => eprintln!("Um erro ocorreu durante a operação: {error}")
+                }
+            } else {
+                eprintln!("Um erro ocorreu durante a operação: {error}");
+            }
         }
     }
 }
