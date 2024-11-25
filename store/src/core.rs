@@ -1,12 +1,12 @@
-use std::{error::Error, fs::File, io::{self, Seek, SeekFrom, Read, Write}};
+use std::{error::Error, fs::File, io::{BufRead, Read, Seek, SeekFrom, Write}};
 
 use super::{errors, screens, validation, Produto, Venda};
 
 const PRODUCT_LENGTH: usize = 102;
 const PRODUCT_LENGTH_U64: u64 = 102;
 
-pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
-    let mut product = validation::get_product_info()?;
+pub fn add_product<R: BufRead>(file: &mut File, reader: &mut R) -> Result<(), Box<dyn Error>> {
+    let mut product = validation::get_product_info(reader)?;
 
     if file.seek(SeekFrom::End(0))? == 0 {
         product.id = 1;
@@ -31,6 +31,78 @@ pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
     file.write(&serialized_id)?;
 
     println!("\nProduto adicionado com sucesso com o id {}.", product.id);
+
+    Ok(())
+}
+
+pub fn register_sale<R: BufRead>(products_file: &mut File, sales_file: &mut File, seller: String, reader: &mut R) -> Result<(), Box<dyn Error>> {
+    screens::add_sale_screen();
+    let mut products: Vec<(u64, u64)> = Vec::new();
+
+    loop {
+        let mut buf = String::new();
+        reader.read_line(&mut buf)?;
+
+        match buf.trim().to_lowercase().as_str() {
+            "sair" => return Err(Box::new(errors::CustomErrors::OperationCanceled)),
+            "concluir" => break,
+            _ => ()
+        }
+
+        products.push(validation::validate_sale(buf.trim())?);
+        println!("próximo produto na venda\n")
+    }
+
+    let mut value: f64 = 0.0;
+
+    let mut sale = Venda::new(seller, 0, value, chrono::Local::now().date_naive(), validation::validate_payment_method(reader)?);
+
+    for &(id, amount) in products.iter() {
+        let (mut product, position) = search_product_id(products_file, id)?;
+
+        value += product.valor * amount as f64;
+
+        match amount > product.quantidade_estoque {
+            true => return Err(Box::new(errors::CustomErrors::LowStock)),
+            false => product.quantidade_estoque -= amount
+        }
+
+        products_file.seek(SeekFrom::Start(position))?;
+
+        let mut serialized = bincode::serialize(&product)?;
+        serialized.resize(PRODUCT_LENGTH, 0);
+        products_file.write(&serialized)?;
+
+        if !sale.produtos.contains(&product.id) {
+            sale.produtos.push(product.id);
+        }
+    }
+
+    sale.valor = value;
+
+    if sales_file.seek(SeekFrom::End(0))? == 0 {
+        sale.codigo = 1;
+    } else {
+        sales_file.seek(SeekFrom::End(-8))?;
+
+        let mut buf = vec![0; 8];
+        sales_file.read_exact(&mut buf)?;
+
+        let code: u64 = bincode::deserialize(&buf)?;
+
+        sale.codigo = code + 1;
+        sales_file.seek(SeekFrom::End(-8))?;
+    }
+
+    let serialized = bincode::serialize(&sale)?;
+    let size = serialized.len() as u64;
+    let code = sale.codigo;
+    let serialized_size = bincode::serialize(&size)?;
+    let serialized_code = bincode::serialize(&code)?;
+
+    sales_file.write(&serialized_size)?;
+    sales_file.write(&serialized)?;
+    sales_file.write(&serialized_code)?;
 
     Ok(())
 }
@@ -100,12 +172,12 @@ pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn update_product(file: &mut File) -> Result<(), Box<dyn Error>> {
-    let id = validation::validate_search("id")?;
+pub fn update_product<R: BufRead>(file: &mut File, reader: &mut R) -> Result<(), Box<dyn Error>> {
+    let id = validation::validate_search("id", reader)?;
     let (product, position) = search_product_id(file, id)?;
 
     println!("Produto encontrado:\n\n{product}\n\n");
-    let mut updated_product = validation::get_product_info()?;
+    let mut updated_product = validation::get_product_info(reader)?;
     updated_product.id = product.id;
 
     let serialized = bincode::serialize(&updated_product)?;
@@ -115,8 +187,8 @@ pub fn update_product(file: &mut File) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn remove_product(file: &mut File) -> Result<(), Box<dyn Error>> {
-    let id = validation::validate_search("id")?;
+pub fn remove_product<R: BufRead>(file: &mut File, reader: &mut R) -> Result<(), Box<dyn Error>> {
+    let id = validation::validate_search("id", reader)?;
     let (_, mut position) = search_product_id(file, id)?;
 
     let size = file.seek(SeekFrom::End(0))? - PRODUCT_LENGTH_U64;
@@ -135,78 +207,6 @@ pub fn remove_product(file: &mut File) -> Result<(), Box<dyn Error>> {
             return Ok(());
         }
     }
-}
-
-pub fn register_sale(products_file: &mut File, sales_file: &mut File, seller: String) -> Result<(), Box<dyn Error>> {
-    screens::add_sale_screen();
-    let mut products: Vec<(u64, u64)> = Vec::new();
-
-    loop {
-        let mut buf = String::new();
-        io::stdin().read_line(&mut buf)?;
-
-        match buf.trim().to_lowercase().as_str() {
-            "sair" => return Err(Box::new(errors::CustomErrors::OperationCanceled)),
-            "concluir" => break,
-            _ => ()
-        }
-
-        products.push(validation::validate_sale(buf.trim())?);
-        println!("próximo produto na venda\n")
-    }
-
-    let mut value: f64 = 0.0;
-
-    let mut sale = Venda::new(seller, 0, value, chrono::Local::now().date_naive(), validation::validate_payment_method()?);
-
-    for &(id, amount) in products.iter() {
-        let (mut product, position) = search_product_id(products_file, id)?;
-
-        value += product.valor * amount as f64;
-
-        match amount > product.quantidade_estoque {
-            true => return Err(Box::new(errors::CustomErrors::LowStock)),
-            false => product.quantidade_estoque -= amount
-        }
-
-        products_file.seek(SeekFrom::Start(position))?;
-
-        let mut serialized = bincode::serialize(&product)?;
-        serialized.resize(PRODUCT_LENGTH, 0);
-        products_file.write(&serialized)?;
-
-        if !sale.produtos.contains(&product.id) {
-            sale.produtos.push(product.id);
-        }
-    }
-
-    sale.valor = value;
-
-    if sales_file.seek(SeekFrom::End(0))? == 0 {
-        sale.codigo = 1;
-    } else {
-        sales_file.seek(SeekFrom::End(-8))?;
-
-        let mut buf = vec![0; 8];
-        sales_file.read_exact(&mut buf)?;
-
-        let code: u64 = bincode::deserialize(&buf)?;
-
-        sale.codigo = code + 1;
-        sales_file.seek(SeekFrom::End(-8))?;
-    }
-
-    let serialized = bincode::serialize(&sale)?;
-    let size = serialized.len() as u64;
-    let code = sale.codigo;
-    let serialized_size = bincode::serialize(&size)?;
-    let serialized_code = bincode::serialize(&code)?;
-
-    sales_file.write(&serialized_size)?;
-    sales_file.write(&serialized)?;
-    sales_file.write(&serialized_code)?;
-
-    Ok(())
 }
 
 pub fn search_sale_code(file: &mut File, code: u64) -> Result<(Venda, u64), Box<dyn Error>> {
@@ -291,13 +291,13 @@ pub fn list_sales(file: &mut File) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn update_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
-    let code = validation::validate_search("code")?;
+pub fn update_sale<R: BufRead>(file: &mut File, reader: &mut R) -> Result<(), Box<dyn Error>> {
+    let code = validation::validate_search("code", reader)?;
     let (mut sale, position) = search_sale_code(file, code)?;
 
     println!("Venda encontrada:\n\n{sale}\n\n");
 
-    let (date, payment_method) = validation::get_sale_info()?;
+    let (date, payment_method) = validation::get_sale_info(reader)?;
     sale.data = date;
     sale.metodo_pagamento = payment_method;
 
@@ -312,8 +312,8 @@ pub fn update_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn remove_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
-    let code = validation::validate_search("code")?;
+pub fn remove_sale<R: BufRead>(file: &mut File, reader: &mut R) -> Result<(), Box<dyn Error>> {
+    let code = validation::validate_search("code", reader)?;
     let (sale, mut position) = search_sale_code(file, code)?;
 
     let size = bincode::serialized_size(&sale)?;
@@ -336,8 +336,9 @@ pub fn remove_sale(file: &mut File) -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::{self, OpenOptions}, io::Cursor};
+
     use super::*;
-    use std::fs::{self, OpenOptions};
 
     fn get_test_file(path: &str) -> File {
         let _ = fs::remove_file(path);
@@ -374,35 +375,51 @@ mod tests {
         file.write(&serialized_id).unwrap();
     }
 
-    /*
+    fn set_sales(file: &mut File) {
+        let sale1 = Venda::new("Venda1".to_string(), 1, 50.0, chrono::NaiveDate::default(), crate::MetodoPagamento::Credito);
+        let sale2 = Venda::new("Venda2".to_string(), 2, 70.0, chrono::NaiveDate::default(), crate::MetodoPagamento::Dinheiro);
+        let mut sale3 = Venda::new("Venda3".to_string(), 3, 90.0, chrono::NaiveDate::default(), crate::MetodoPagamento::Pix);
+
+        sale3.produtos.push(1);
+
+        let buf1 = bincode::serialize(&sale1).unwrap();
+        let size1 = buf1.len() as u64;
+        let size_buf1 = bincode::serialize(&size1).unwrap();
+
+        let buf2 = bincode::serialize(&sale2).unwrap();
+        let size2 = buf2.len() as u64;
+        let size_buf2 = bincode::serialize(&size2).unwrap();
+
+        let buf3 = bincode::serialize(&sale3).unwrap();
+        let size3 = buf3.len() as u64;
+        let size_buf3 = bincode::serialize(&size3).unwrap();
+
+        let code: u64 = 3;
+        let serialized_code = bincode::serialize(&code).unwrap();
+
+        file.write(&size_buf1).unwrap();
+        file.write(&buf1).unwrap();
+        file.write(&size_buf2).unwrap();
+        file.write(&buf2).unwrap();
+        file.write(&size_buf3).unwrap();
+        file.write(&buf3).unwrap();
+
+        file.write(&serialized_code).unwrap();
+    }
 
     #[test]
     fn test_add_product() {
         let path = "test_add_product.bin";
         let mut file = get_test_file(path);
 
-        loop {
-            let size_before = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
+        let input = b"Camisa 10 50 5 10/8/2023 Geral";
+        let mut cursor = Cursor::new(input);
 
-            if let Err(error) = update_product(&mut file) {
-                if let Some(custom) = error.downcast_ref::<errors::CustomErrors>() {
-                    match custom {
-                        errors::CustomErrors::OperationCanceled => break,
-                        _ => panic!("Erro ao tentar adicionar ao arquivo: {error}")
-                    }
-                } else {
-                    panic!("Erro ao tentar adicionar ao arquivo: {error}");
-                }
-            }
+        assert!(add_product(&mut file, &mut cursor).is_ok());
 
-            let size_after = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
+        let size = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
 
-            if size_before == 0 {
-                assert_eq!(size_before + 8, size_after - PRODUCT_LENGTH_U64);
-            } else {
-                assert_eq!(size_before, size_after - PRODUCT_LENGTH_U64);
-            }
-        }
+        assert_eq!(size, PRODUCT_LENGTH_U64 + 8);
 
         fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
     }
@@ -417,28 +434,21 @@ mod tests {
 
         set_products(&mut products_file);
 
-        loop {
-            let products_size = products_file.seek(SeekFrom::End(0)).expect("Erro no arquivo de produtos.");
-            let sales_size = sales_file.seek(SeekFrom::End(0)).expect("Erro no arquivo de vendas.");
+        let products_size = products_file.seek(SeekFrom::End(0)).expect("Erro no arquivo de produtos.");
+        let sales_size = sales_file.seek(SeekFrom::End(0)).expect("Erro no arquivo de vendas.");
 
-            if let Err(error) = register_sale(&mut products_file, &mut sales_file, "Teste".to_string()) {
-                if let Some(custom) = error.downcast_ref::<errors::CustomErrors>() {
-                    match custom {
-                        errors::CustomErrors::OperationCanceled => break,
-                        _ => panic!("Erro ao registrar venda: {error}")
-                    }
-                } else {
-                    panic!("Erro ao registrar venda: {error}");
-                }
-            }
+        let input = "1\nconcluir\ndebito";
+        let mut cursor = Cursor::new(input);
 
-            assert_eq!(products_size, products_file.seek(SeekFrom::End(0)).expect("Erro no arquivo de produtos."));
-            assert!(sales_size < sales_file.seek(SeekFrom::End(0)).expect("Erro no arquivo de vendas."));
-        }
+        let result = register_sale(&mut products_file, &mut sales_file, "Teste".to_string(), &mut cursor);
+
+        assert!(result.is_ok());
+
+        assert_eq!(products_size, products_file.seek(SeekFrom::End(0)).expect("Erro no arquivo de produtos."));
+        assert!(sales_size < sales_file.seek(SeekFrom::End(0)).expect("Erro no arquivo de vendas."));
 
         fs::remove_file(path_products).expect("Erro ao tentar excluir o arquivo de produtos.");
         fs::remove_file(path_sales).expect("Erro ao tentar excluir o arquivo de vendas.");
-
     }
 
     #[test]
@@ -496,20 +506,14 @@ mod tests {
 
         let size = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
 
-        loop {
-            if let Err(error) = update_product(&mut file) {
-                if let Some(custom) = error.downcast_ref::<errors::CustomErrors>() {
-                    match custom {
-                        errors::CustomErrors::OperationCanceled => break,
-                        _ => panic!("Erro ao tentar atualizar o produto: {error}")
-                    }
-                } else {
-                    panic!("Erro ao tentar atualizar o produto: {error}");
-                }
-            }
+        let input = b"1\nCamisa 10 50 5 10/8/2023 Geral";
+        let mut cursor = Cursor::new(input);
 
-            assert_eq!(size, file.seek(SeekFrom::End(0)).expect("Erro no arquivo."));
-        }
+        let result = update_product(&mut file, &mut cursor);
+
+        assert!(result.is_ok());
+
+        assert_eq!(size, file.seek(SeekFrom::End(0)).expect("Erro no arquivo."));
 
         fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
     }
@@ -521,24 +525,122 @@ mod tests {
 
         set_products(&mut file);
 
-        loop {
-            let size = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
+        let size = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
 
-            if let Err(error) = remove_product(&mut file) {
-                if let Some(custom) = error.downcast_ref::<errors::CustomErrors>() {
-                    match custom {
-                        errors::CustomErrors::OperationCanceled => break,
-                        _ => panic!("Erro ao tentar adicionar ao arquivo: {error}")
-                    }
-                } else {
-                    panic!("Erro ao tentar adicionar ao arquivo: {error}");
-                }
-            }
+        let input = b"1";
+        let mut cursor = Cursor::new(input);
 
-            assert_eq!(size - PRODUCT_LENGTH_U64, file.seek(SeekFrom::End(0)).expect("Erro no arquivo."));
-        }
+        let result = remove_product(&mut file, &mut cursor);
+
+        assert!(result.is_ok());
+
+        assert_eq!(size - PRODUCT_LENGTH_U64, file.seek(SeekFrom::End(0)).expect("Erro no arquivo."));
 
         fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
     }
-    */
+
+    #[test]
+    fn test_search_sale_code() {
+        let path = "test_search_sale_code.bin";
+        let mut file = get_test_file(path);
+
+        set_sales(&mut file);
+
+        let result = search_sale_code(&mut file, 1);
+
+        assert!(result.is_ok());
+
+        let sale = result.unwrap();
+
+        assert_eq!(sale.1, 0);
+        assert_eq!(sale.0.codigo, 1);
+        assert_eq!(sale.0.vendedor, "Venda1");
+        assert_eq!(sale.0.valor, 50.0);
+
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.")
+    }
+
+    #[test]
+    fn test_search_sales_by_date() {
+        let path = "test_search_sales_by_date.bin";
+        let mut file = get_test_file(path);
+
+        set_sales(&mut file);
+
+        let result = search_sales_by_date(&mut file, chrono::NaiveDate::default());
+
+        assert!(result.is_ok());
+
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.")
+    }
+
+    #[test]
+    fn test_search_product_sales() {
+        let path = "test_search_product_sales.bin";
+        let mut file = get_test_file(path);
+
+        set_sales(&mut file);
+
+        let result = search_product_sales(&mut file, 1);
+
+        assert!(result.is_ok());
+
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.")
+    }
+
+    #[test]
+    fn test_list_sales() {
+        let path = "test_list_sales.bin";
+        let mut file = get_test_file(path);
+
+        set_sales(&mut file);
+
+        let result = list_sales(&mut file);
+
+        assert!(result.is_ok());
+
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
+    }
+
+    #[test]
+    fn test_update_sale() {
+        let path = "test_update_sale.bin";
+        let mut file = get_test_file(path);
+
+        set_sales(&mut file);
+
+        let input = b"2\n1/8/2023\npix";
+        let mut cursor = Cursor::new(input);
+
+        let size = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
+
+        let result = update_sale(&mut file, &mut cursor);
+
+        assert!(result.is_ok());
+
+        assert_eq!(size, file.seek(SeekFrom::End(0)).expect("Erro no arquivo."));
+
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
+    }
+
+    #[test]
+    fn test_remove_sale() {
+        let path = "test_remove_sale.bin";
+        let mut file = get_test_file(path);
+
+        set_sales(&mut file);
+
+        let input = b"1";
+        let mut cursor = Cursor::new(input);
+
+        let size = file.seek(SeekFrom::End(0)).expect("Erro no arquivo.");
+
+        let result = remove_sale(&mut file, &mut cursor);
+
+        assert!(result.is_ok());
+
+        assert!(size > file.seek(SeekFrom::End(0)).expect("Erro no arquivo."));
+
+        fs::remove_file(path).expect("Erro ao tentar excluir o arquivo.");
+    }
 }

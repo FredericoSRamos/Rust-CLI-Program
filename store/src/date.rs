@@ -21,3 +21,37 @@ where
 
     Ok(dt)
 }
+
+#[cfg(test)]
+mod tests {
+    use serde::{Serialize, Deserialize};
+    use chrono::NaiveDate;
+
+    #[derive(Serialize, Deserialize)]
+    struct Data {
+        #[serde(with = "super")]
+        date: NaiveDate
+    }
+
+    #[test]
+    fn test_serialize_deserialize_date() {
+        let date_struct = Data {
+            date: NaiveDate::default()
+        };
+
+        let serialized_date = bincode::serialize(&date_struct).unwrap();
+
+        let deserialized_date: Data = bincode::deserialize(&serialized_date).unwrap();
+
+        assert_eq!(date_struct.date, deserialized_date.date);
+    }
+
+    #[test]
+    fn test_serialize_deserialize_error() {
+        let invalid_bytes = vec![0x00, 0xFF, 0x00];
+
+        let result: Result<Data, bincode::Error> = bincode::deserialize(&invalid_bytes);
+
+        assert!(result.is_err());
+    }
+}

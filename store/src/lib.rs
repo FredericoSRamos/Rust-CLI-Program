@@ -110,3 +110,65 @@ impl std::fmt::Display for Venda {
                 self.data.format("%d/%m/%Y"), self.vendedor, self.codigo, self.valor, self.metodo_pagamento, self.produtos)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use super::*;
+    
+    #[test]
+    fn test_categories_display() {
+        assert_eq!(format!("{}", Categoria::Alimento), "Alimento");
+        assert_eq!(format!("{}", Categoria::Eletronico), "Eletrônico");
+        assert_eq!(format!("{}", Categoria::Geral), "Geral");
+        assert_eq!(format!("{}", Categoria::Roupa), "Roupa");
+    }
+
+    #[test]
+    fn test_payment_methods_display() {
+        assert_eq!(format!("{}", MetodoPagamento::Credito), "Cartão de crédito");
+        assert_eq!(format!("{}", MetodoPagamento::Debito), "Cartão de débito");
+        assert_eq!(format!("{}", MetodoPagamento::Dinheiro), "Dinheiro");
+        assert_eq!(format!("{}", MetodoPagamento::Pix), "PIX");
+    }
+
+    #[test]
+    fn test_create_product() {
+        let product = Produto::new("Smartphone".to_string(), 1, 100, 1500.0, 50, NaiveDate::default(), Categoria::Eletronico);
+
+        assert_eq!(product.nome, "Smartphone");
+        assert_eq!(product.id, 1);
+        assert_eq!(product.quantidade_estoque, 100);
+        assert_eq!(product.valor, 1500.0);
+        assert_eq!(product.quantidade_restoque, 50);
+        assert_eq!(product.data_restoque, NaiveDate::default());
+    }
+
+    #[test]
+    fn test_product_display() {
+        let product = Produto::new("Camisa".to_string(), 2, 50, 69.99, 10, NaiveDate::default(), Categoria::Roupa);
+
+        let output = "Camisa\nID: 2\nEstoque: 50\nPreço: R$69.99\nMínimo para restoque: 10\nData do último restoque: 01/01/1970\nCategoria: Roupa";
+
+        assert_eq!(format!("{product}"), format!("{output}"));
+    }
+
+    #[test]
+    fn test_create_sale() {
+        let venda = Venda::new("Lucas".to_string(), 2, 8.75, NaiveDate::default(), MetodoPagamento::Pix);
+
+        assert_eq!(venda.vendedor, "Lucas");
+        assert_eq!(venda.codigo, 2);
+        assert_eq!(venda.valor, 8.75);
+        assert_eq!(venda.data, NaiveDate::default());
+    }
+
+    #[test]
+    fn test_sale_display() {
+        let venda = Venda::new("Pedro".to_string(), 1, 100.50, NaiveDate::default(), MetodoPagamento::Debito);
+
+        let output = "Data da venda: 01/01/1970\nVenda realizada por: Pedro\nCódigo: 1\nValor: R$100.50\nMétodo de pagamento: Cartão de débito\nProdutos vendidos:\n[]";
+
+        assert_eq!(format!("{venda}"), format!("{output}"));
+    }
+}

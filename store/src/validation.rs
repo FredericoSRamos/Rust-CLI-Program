@@ -1,5 +1,5 @@
 use super::{Produto, Categoria, MetodoPagamento, errors};
-use std::{error::Error, fs::{File, OpenOptions}, process};
+use std::{error::Error, fs::{File, OpenOptions}, io::{self, BufRead}, process};
 
 pub fn get_files() -> (File, File) {
     (
@@ -29,7 +29,7 @@ pub fn get_option() -> u64 {
         super::screens::menu_screen();
 
         let mut buf = String::new();
-        if let Err(error) = std::io::stdin().read_line(&mut buf) {
+        if let Err(error) = io::stdin().read_line(&mut buf) {
             eprintln!("Ocorreu um erro ao tentar ler a opção selecionada: {error}\nCertifique-se de ter inserido corretamente.");
             continue;
         };
@@ -50,22 +50,10 @@ pub fn get_option() -> u64 {
     }
 }
 
-pub fn get_string() -> String {
+pub fn validate_string<R: BufRead>(reader: &mut R) -> Result<String, errors::CustomErrors> {
     loop {
         let mut buf = String::new();
-        if let Err(error) = std::io::stdin().read_line(&mut buf) {
-            eprintln!("Um erro ocorreu na leitura: {error}");
-            continue;
-        }
-
-        return buf.trim().to_string();
-    }
-}
-
-pub fn validate_string() -> Result<String, errors::CustomErrors> {
-    loop {
-        let mut buf = String::new();
-        if let Err(error) = std::io::stdin().read_line(&mut buf) {
+        if let Err(error) = reader.read_line(&mut buf) {
             eprintln!("Um erro ocorreu na leitura: {error}");
             continue;
         }
@@ -78,7 +66,7 @@ pub fn validate_string() -> Result<String, errors::CustomErrors> {
     }
 }
 
-pub fn validate_search(search: &str) -> Result<u64, errors::CustomErrors> {
+pub fn validate_search<R: BufRead>(search: &str, reader: &mut R) -> Result<u64, errors::CustomErrors> {
 
     match search {
         "id" => println!("Digite o ID do produto (ou sair para cancelar a operação):"),
@@ -86,7 +74,7 @@ pub fn validate_search(search: &str) -> Result<u64, errors::CustomErrors> {
     }
 
     loop {
-        let buf = validate_string()?;
+        let buf = validate_string(reader)?;
 
         match validate_int(&buf) {
             Ok(id) => return Ok(id),
@@ -105,12 +93,12 @@ fn validate_float(string: &str) -> Result<f64, std::num::ParseFloatError> {
     return Ok(number);
 }
 
-pub fn get_product_info() -> Result<Produto, Box<dyn Error>> {
+pub fn get_product_info<R: BufRead>(reader: &mut R) -> Result<Produto, Box<dyn Error>> {
     loop {
         super::screens::add_product_screen();
 
         let mut buf = String::new();
-        std::io::stdin().read_line(&mut buf)?;
+        reader.read_line(&mut buf)?;
 
         if buf.trim().to_lowercase() == "sair" {
             return Err(Box::new(errors::CustomErrors::OperationCanceled));
@@ -153,11 +141,11 @@ fn validate_product(input: Vec<&str>) -> Result<Produto, Box<dyn Error>> {
     return Ok(Produto::new(input[0].to_string(), 0, quantidade_estoque, valor, quantidade_restoque, data_restoque, categoria));
 }
 
-pub fn get_sale_info() -> Result<(chrono::NaiveDate, MetodoPagamento), Box<dyn Error>> {
+pub fn get_sale_info<R: BufRead>(reader: &mut R) -> Result<(chrono::NaiveDate, MetodoPagamento), Box<dyn Error>> {
     println!("Digite a data da venda seguindo o formato dd/mm/YYYY (ou digite 'sair' para cancelar).\n");
 
-    let date = validate_date()?;
-    let payment_method = validate_payment_method()?;
+    let date = validate_date(reader)?;
+    let payment_method = validate_payment_method(reader)?;
 
     return Ok((date, payment_method));
 }
@@ -177,7 +165,7 @@ pub fn validate_sale(string: &str) -> Result<(u64, u64), Box<dyn Error>> {
     Ok((id, amount))
 }
 
-pub fn validate_payment_method() -> Result<MetodoPagamento, Box<dyn Error>> {
+pub fn validate_payment_method<R: BufRead>(reader: &mut R) -> Result<MetodoPagamento, Box<dyn Error>> {
     
     println!("\nInsira a forma de pagamento:\n
     Opções: credito, debito, pix, dinheiro
@@ -185,7 +173,7 @@ pub fn validate_payment_method() -> Result<MetodoPagamento, Box<dyn Error>> {
 
     let mut buf = String::new();
 
-    std::io::stdin().read_line(&mut buf)?;
+    reader.read_line(&mut buf)?;
     
     let payment_method = match buf.trim().to_lowercase().as_str() {
         "credito" => MetodoPagamento::Credito,
@@ -200,13 +188,159 @@ pub fn validate_payment_method() -> Result<MetodoPagamento, Box<dyn Error>> {
     return Ok(payment_method);
 }
 
-pub fn validate_date() -> Result<chrono::NaiveDate, errors::CustomErrors> {
+pub fn validate_date<R: BufRead>(reader: &mut R) -> Result<chrono::NaiveDate, errors::CustomErrors> {
     loop {
-        let buf = validate_string()?;
+        let buf = validate_string(reader)?;
 
         match chrono::NaiveDate::parse_from_str(&buf, "%d/%m/%Y") {
             Ok(date) => return Ok(date),
             Err(error) => eprintln!("Ocorreu um erro ao tentar ler a data informada: {error}\nCertifique-se de que a data está inserida no formato correto.")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs, io::Cursor};
+
+    use super::*;
+
+    #[test]
+    fn test_get_files() {
+        get_files();
+
+        assert!(fs::exists("produtos.bin").expect("Erro ao tentar localizar o arquivo."));
+        assert!(fs::exists("vendas.bin").expect("Erro ao tentar localizar o arquivo."));
+    }
+
+    #[test]
+    fn test_validate_string() {
+        let input = b"Carlos";
+        let mut cursor = Cursor::new(input);
+
+        let result = validate_string(&mut cursor);
+
+        assert!(result.is_ok());
+
+        let input = b"sair";
+        let mut cursor = Cursor::new(input);
+
+        let result = validate_string(&mut cursor);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_search() {
+        let input = b"3";
+        let mut cursor = Cursor::new(input);
+
+        let result = validate_search("id", &mut cursor);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 3);
+    }
+
+    #[test]
+    fn test_validate_int() {
+        let int = "10";
+
+        let result = validate_int(int);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 10);
+    }
+
+    #[test]
+    fn test_validate_float() {
+        let int = "5";
+
+        let result = validate_float(int);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 5.0);
+    }
+
+    #[test]
+    fn test_get_product_info() {
+        let input = b"Camisa 10 50 5 10/8/2023 Geral";
+        let mut cursor = Cursor::new(input);
+
+        let result = get_product_info(&mut cursor);
+
+        assert!(result.is_ok());
+
+        let produto = result.unwrap();
+
+        assert_eq!(produto.nome, "Camisa");
+        assert_eq!(produto.quantidade_estoque, 10);
+        assert_eq!(produto.quantidade_restoque, 5);
+    }
+
+    #[test]
+    fn test_validate_product() {
+        let input = vec!["Camisa", "10", "35", "5", "15/11/2024", "eletronico"];
+
+        let result = validate_product(input);
+
+        assert!(result.is_ok());
+
+        let produto = result.unwrap();
+
+        assert_eq!(produto.nome, "Camisa");
+        assert_eq!(produto.quantidade_estoque, 10);
+        assert_eq!(produto.quantidade_restoque, 5);
+    }
+
+    #[test]
+    fn test_get_sale_info() {
+        let input = b"1/1/1970\ncredito";
+        let mut cursor = Cursor::new(input);
+
+        let result = get_sale_info(&mut cursor);
+
+        assert!(result.is_ok());
+
+        let sale_info = result.unwrap();
+
+        assert_eq!(sale_info.0, chrono::NaiveDate::default());
+    }
+
+    #[test]
+    fn test_validate_sale() {
+        let result = validate_sale("2 3");
+
+        assert!(result.is_ok());
+
+        assert_eq!((2, 3), result.unwrap());
+    }
+
+    #[test]
+    fn test_validate_payment_method() {
+        let input = b"credito";
+        let mut cursor = Cursor::new(input);
+
+        let result = validate_payment_method(&mut cursor);
+
+        assert!(result.is_ok());
+
+        let input = b"invalido";
+        let mut cursor = Cursor::new(input);
+
+        let result = validate_payment_method(&mut cursor);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_date() {
+        let input = b"1/1/1970";
+        let mut cursor = Cursor::new(input);
+
+        let result = validate_date(&mut cursor);
+
+        assert!(result.is_ok());
+
+        assert_eq!(result.unwrap(), chrono::NaiveDate::default());
     }
 }
