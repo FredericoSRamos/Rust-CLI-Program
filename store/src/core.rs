@@ -30,7 +30,7 @@ pub fn add_product(file: &mut File) -> Result<(), Box<dyn Error>> {
     let serialized_id = bincode::serialize(&id)?;
     file.write(&serialized_id)?;
 
-    println!("Produto adicionado com sucesso com o id {}.", product.id);
+    println!("\nProduto adicionado com sucesso com o id {}.", product.id);
 
     Ok(())
 }
@@ -76,7 +76,7 @@ pub fn list_products(file: &mut File) -> Result<(), Box<dyn Error>> {
 
         product = bincode::deserialize(&buf)?;
 
-        println!("{product}");
+        println!("\n--{product}");
     }
 
     Ok(())
@@ -93,7 +93,7 @@ pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
         product = bincode::deserialize(&buf)?;
 
         if product.quantidade_estoque <= product.quantidade_restoque {
-            println!("{product}");
+            println!("\n--{product}");
         }
     }
 
@@ -152,6 +152,7 @@ pub fn register_sale(products_file: &mut File, sales_file: &mut File, seller: St
         }
 
         products.push(validation::validate_sale(buf.trim())?);
+        println!("próximo produto na venda\n")
     }
 
     let mut value: f64 = 0.0;
@@ -243,7 +244,7 @@ pub fn search_sales_by_date(file: &mut File, date: chrono::NaiveDate) -> Result<
             let sale: Venda = bincode::deserialize(&buf)?;
 
             if sale.data == date {
-                println!("{sale}\n");
+                println!("--{sale}\n");
             }
         }
     }

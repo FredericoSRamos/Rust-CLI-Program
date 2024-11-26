@@ -178,7 +178,10 @@ pub fn validate_sale(string: &str) -> Result<(u64, u64), Box<dyn Error>> {
 }
 
 pub fn validate_payment_method() -> Result<MetodoPagamento, Box<dyn Error>> {
-    println!("Insira a forma de pagamento:\n");
+    
+    println!("\nInsira a forma de pagamento:\n
+    Opções: credito, debito, pix, dinheiro
+    \n* Atenção: Não utilizar acento! *\n");
 
     let mut buf = String::new();
 
