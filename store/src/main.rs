@@ -8,7 +8,7 @@ fn main() {
 
     let (mut products_file, mut sales_file) = validation::get_files();
 
-    println!("Insira o caixa que está realizando as vendas (ou 'sair' para encerrar a aplicação):");
+    println!("\nInsira o nome do caixa que está realizando as vendas (ou 'sair' para encerrar a aplicação):");
     let mut seller = validation::validate_string(&mut stdin().lock()).unwrap_or_else(|_| {
         process::exit(0);
     });
@@ -21,7 +21,7 @@ fn main() {
             3 => match validation::validate_search("id", &mut stdin().lock()) {
                 Ok(id) => match core::search_product_id(&mut products_file, id) {
                     Ok((product, _)) => {
-                        println!("{product}");
+                        println!("\n{product}\n");
                         Ok(())
                     },
                     Err(error) => Err(error)
@@ -35,7 +35,7 @@ fn main() {
             8 => match validation::validate_search("code", &mut stdin().lock()) {
                 Ok(code) => match core::search_sale_code(&mut sales_file, code) {
                     Ok((sale, _)) => {
-                        println!("{sale}\n");
+                        println!("\n{sale}\n");
                         Ok(())
                     },
                     Err(error) => Err(error)
@@ -43,7 +43,7 @@ fn main() {
                 Err(error) => Err(Box::new(error) as Box<dyn std::error::Error>)
             },
             9 => {
-                println!("Digite a data da venda que deseja procurar seguindo o formato dd/mm/YYYY ou digite 'sair' para cancelar");
+                println!("\nDigite a data da venda que deseja procurar seguindo o formato dd/mm/YYYY (ou digite 'sair' para cancelar):");
                 match validation::validate_date(&mut stdin().lock()) {
                     Ok(date) => core::search_sales_by_date(&mut sales_file, date),
                     Err(error) => Err(Box::new(error) as Box<dyn std::error::Error>)
@@ -57,7 +57,7 @@ fn main() {
             12 => core::update_sale(&mut sales_file, &mut stdin().lock()),
             13 => core::remove_sale(&mut sales_file, &mut stdin().lock()),
             14 => {
-                println!("Insira o caixa que está realizando as vendas (ou 'sair' para cancelar):");
+                println!("\nInsira o nome do caixa que está realizando as vendas (ou 'sair' para cancelar):");
 
                 if let Ok(name) = validation::validate_string(&mut stdin().lock()) {
                     seller = name;
@@ -66,7 +66,7 @@ fn main() {
                 Ok(())
             },
             _ => {
-                eprintln!("Insira um valor válido de operação.");
+                eprintln!("\nInsira um valor válido de operação.\n");
 
                 Ok(())
             }
@@ -76,10 +76,10 @@ fn main() {
             if let Some(custom) = error.downcast_ref::<store::errors::CustomErrors>() {
                 match custom {
                     store::errors::CustomErrors::OperationCanceled => (),
-                    _ => eprintln!("Um erro ocorreu durante a operação: {error}")
+                    _ => eprintln!("\nUm erro ocorreu durante a operação: {error}\n")
                 }
             } else {
-                eprintln!("Um erro ocorreu durante a operação: {error}");
+                eprintln!("\nUm erro ocorreu durante a operação: {error}\n");
             }
         }
     }

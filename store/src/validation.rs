@@ -9,7 +9,7 @@ pub fn get_files() -> (File, File) {
         .create(true)
         .open("produtos.bin")
         .unwrap_or_else(|error| {
-            eprintln!("Ocorreu um erro tentando abrir o arquivo: {error}");
+            eprintln!("\nOcorreu um erro tentando abrir o arquivo: {error}\n");
             process::exit(1);
         }),
     OpenOptions::new()
@@ -18,7 +18,7 @@ pub fn get_files() -> (File, File) {
         .create(true)
         .open("vendas.bin")
         .unwrap_or_else(|error| {
-            eprintln!("Ocorreu um erro tentando abrir o arquivo: {error}");
+            eprintln!("\nOcorreu um erro tentando abrir o arquivo: {error}\n");
             process::exit(1);
         })
     )
@@ -30,7 +30,7 @@ pub fn get_option() -> u64 {
 
         let mut buf = String::new();
         if let Err(error) = io::stdin().read_line(&mut buf) {
-            eprintln!("Ocorreu um erro ao tentar ler a opção selecionada: {error}\nCertifique-se de ter inserido corretamente.");
+            eprintln!("\nOcorreu um erro ao tentar ler a opção selecionada: {error}\nCertifique-se de ter inserido corretamente.\n");
             continue;
         };
 
@@ -41,7 +41,7 @@ pub fn get_option() -> u64 {
         let option: u64 = match buf.trim().parse() {
             Ok(value) => value,
             Err(error) => {
-                eprintln!("Ocorreu um erro ao tentar ler a opção selecionada: {error}\nCertifique-se de ter inserido corretamente.");
+                eprintln!("\nOcorreu um erro ao tentar ler a opção selecionada: {error}\nCertifique-se de ter inserido corretamente.\n");
                 continue;
             }
         };
@@ -54,7 +54,7 @@ pub fn validate_string<R: BufRead>(reader: &mut R) -> Result<String, errors::Cus
     loop {
         let mut buf = String::new();
         if let Err(error) = reader.read_line(&mut buf) {
-            eprintln!("Um erro ocorreu na leitura: {error}");
+            eprintln!("\nUm erro ocorreu na leitura: {error}\n");
             continue;
         }
 
@@ -69,8 +69,8 @@ pub fn validate_string<R: BufRead>(reader: &mut R) -> Result<String, errors::Cus
 pub fn validate_search<R: BufRead>(search: &str, reader: &mut R) -> Result<u64, errors::CustomErrors> {
 
     match search {
-        "id" => println!("Digite o ID do produto (ou sair para cancelar a operação):"),
-        _ => println!("Digite o código da venda (ou sair para cancelar a operação):")
+        "id" => println!("\nDigite o ID do produto (ou sair para cancelar a operação):"),
+        _ => println!("\nDigite o código da venda (ou sair para cancelar a operação):")
     }
 
     loop {
@@ -78,7 +78,7 @@ pub fn validate_search<R: BufRead>(search: &str, reader: &mut R) -> Result<u64, 
 
         match validate_int(&buf) {
             Ok(id) => return Ok(id),
-            Err(error) => eprintln!("Um erro ocorreu ao tentar converter o ID: {error}\nCertifique-se de que um valor válido foi inserido.")
+            Err(error) => eprintln!("\nUm erro ocorreu ao tentar converter o ID: {error}\nCertifique-se de que um valor válido foi inserido.\n")
         };
     }
 }
@@ -107,13 +107,13 @@ pub fn get_product_info<R: BufRead>(reader: &mut R) -> Result<Produto, Box<dyn E
         let fields: Vec<&str> = buf.split(' ').map(|field| field.trim()).collect();
 
         if fields.len() != 6 {
-            eprintln!("Número incorreto de argumentos.");
+            eprintln!("\nNúmero incorreto de argumentos.\n");
             continue;
         }
 
         match validate_product(fields) {
             Ok(product) => return Ok(product),
-            Err(error) => eprintln!("Um erro ocorreu durante a conversão de argumentos: {error}\nVerifique se todos os campos foram inseridos corretamente.")
+            Err(error) => eprintln!("\nUm erro ocorreu durante a conversão de argumentos: {error}\nVerifique se todos os campos foram inseridos corretamente.\n")
         };
     }
 }
@@ -142,7 +142,7 @@ fn validate_product(input: Vec<&str>) -> Result<Produto, Box<dyn Error>> {
 }
 
 pub fn get_sale_info<R: BufRead>(reader: &mut R) -> Result<(chrono::NaiveDate, MetodoPagamento), Box<dyn Error>> {
-    println!("Digite a data da venda seguindo o formato dd/mm/YYYY (ou digite 'sair' para cancelar).\n");
+    println!("\nDigite a data da venda seguindo o formato dd/mm/YYYY (ou digite 'sair' para cancelar):");
 
     let date = validate_date(reader)?;
     let payment_method = validate_payment_method(reader)?;
@@ -167,9 +167,7 @@ pub fn validate_sale(string: &str) -> Result<(u64, u64), Box<dyn Error>> {
 
 pub fn validate_payment_method<R: BufRead>(reader: &mut R) -> Result<MetodoPagamento, Box<dyn Error>> {
     
-    println!("\nInsira a forma de pagamento:\n
-    Opções: credito, debito, pix, dinheiro
-    \n* Atenção: Não utilizar acento! *\n");
+    println!("\nInsira a forma de pagamento:\n\nOpções: credito, debito, pix, dinheiro\n\n* Atenção: Não utilizar acento! *\n");
 
     let mut buf = String::new();
 
@@ -194,7 +192,7 @@ pub fn validate_date<R: BufRead>(reader: &mut R) -> Result<chrono::NaiveDate, er
 
         match chrono::NaiveDate::parse_from_str(&buf, "%d/%m/%Y") {
             Ok(date) => return Ok(date),
-            Err(error) => eprintln!("Ocorreu um erro ao tentar ler a data informada: {error}\nCertifique-se de que a data está inserida no formato correto.")
+            Err(error) => eprintln!("\nOcorreu um erro ao tentar ler a data informada: {error}\nCertifique-se de que a data está inserida no formato correto.\n")
         }
     }
 }

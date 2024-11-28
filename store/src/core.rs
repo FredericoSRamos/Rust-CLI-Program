@@ -30,7 +30,7 @@ pub fn add_product<R: BufRead>(file: &mut File, reader: &mut R) -> Result<(), Bo
     let serialized_id = bincode::serialize(&id)?;
     file.write(&serialized_id)?;
 
-    println!("\nProduto adicionado com sucesso com o id {}.", product.id);
+    println!("\nProduto adicionado com sucesso com o id {}.\n", product.id);
 
     Ok(())
 }
@@ -50,7 +50,12 @@ pub fn register_sale<R: BufRead>(products_file: &mut File, sales_file: &mut File
         }
 
         products.push(validation::validate_sale(buf.trim())?);
-        println!("próximo produto na venda\n")
+        println!("\nPróximo produto na venda (ou 'sair'):\n")
+    }
+
+    if products.is_empty() {
+        println!("\nNenhum produto inserido.\n");
+        return Ok(());
     }
 
     let mut value: f64 = 0.0;
@@ -127,6 +132,8 @@ pub fn search_product_id(file: &mut File, id: u64) -> Result<(Produto, u64), Box
         if product.id > id {
             if mid != 0 {
                 right = mid - 1;
+            } else {
+                break;
             }
         } else if product.id < id {
             left = mid + 1;
@@ -139,6 +146,8 @@ pub fn search_product_id(file: &mut File, id: u64) -> Result<(Produto, u64), Box
 }
 
 pub fn list_products(file: &mut File) -> Result<(), Box<dyn Error>> {
+    println!("\nProdutos no estoque:\n");
+
     let mut buf = [0; PRODUCT_LENGTH];
     let mut product: Produto;
 
@@ -148,13 +157,15 @@ pub fn list_products(file: &mut File) -> Result<(), Box<dyn Error>> {
 
         product = bincode::deserialize(&buf)?;
 
-        println!("\n--{product}");
+        println!("{product}\n");
     }
 
     Ok(())
 }
 
 pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
+    println!("\nProdutos com necessidade de restoque:\n");
+
     let mut buf = [0; PRODUCT_LENGTH];
     let mut product: Produto;
 
@@ -165,7 +176,7 @@ pub fn products_needing_restock(file: &mut File) -> Result<(), Box<dyn Error>> {
         product = bincode::deserialize(&buf)?;
 
         if product.quantidade_estoque <= product.quantidade_restoque {
-            println!("\n--{product}");
+            println!("{product}\n");
         }
     }
 
@@ -176,7 +187,7 @@ pub fn update_product<R: BufRead>(file: &mut File, reader: &mut R) -> Result<(),
     let id = validation::validate_search("id", reader)?;
     let (product, position) = search_product_id(file, id)?;
 
-    println!("Produto encontrado:\n\n{product}\n\n");
+    println!("\nProduto encontrado:\n\n{product}\n");
     let mut updated_product = validation::get_product_info(reader)?;
     updated_product.id = product.id;
 
@@ -234,7 +245,7 @@ pub fn search_sales_by_date(file: &mut File, date: chrono::NaiveDate) -> Result<
     file.seek(SeekFrom::Start(0))?;
     let mut size_buf = vec![0; 8];
 
-    println!("Vendas realizadas na data especificada:\n");
+    println!("\nVendas realizadas na data especificada:\n");
 
     while let Ok(_) = file.read_exact(&mut size_buf) {
         let size: u64 = bincode::deserialize(&size_buf)?;
@@ -244,7 +255,7 @@ pub fn search_sales_by_date(file: &mut File, date: chrono::NaiveDate) -> Result<
             let sale: Venda = bincode::deserialize(&buf)?;
 
             if sale.data == date {
-                println!("--{sale}\n");
+                println!("\n{sale}\n");
             }
         }
     }
@@ -256,7 +267,7 @@ pub fn search_product_sales(file: &mut File, id: u64) -> Result<(), Box<dyn Erro
     file.seek(SeekFrom::Start(0))?;
     let mut size_buf = vec![0; 8];
 
-    println!("Vendas do produto especificado:\n");
+    println!("\nVendas do produto especificado:\n");
 
     while let Ok(_) = file.read_exact(&mut size_buf) {
         let size: u64 = bincode::deserialize(&size_buf)?;
@@ -275,6 +286,8 @@ pub fn search_product_sales(file: &mut File, id: u64) -> Result<(), Box<dyn Erro
 }
 
 pub fn list_sales(file: &mut File) -> Result<(), Box<dyn Error>> {
+    println!("\nVendas realizadas:\n");
+
     file.seek(SeekFrom::Start(0))?;
     let mut size_buf = vec![0; 8];
 
@@ -295,7 +308,7 @@ pub fn update_sale<R: BufRead>(file: &mut File, reader: &mut R) -> Result<(), Bo
     let code = validation::validate_search("code", reader)?;
     let (mut sale, position) = search_sale_code(file, code)?;
 
-    println!("Venda encontrada:\n\n{sale}\n\n");
+    println!("\nVenda encontrada:\n\n{sale}\n");
 
     let (date, payment_method) = validation::get_sale_info(reader)?;
     sale.data = date;
